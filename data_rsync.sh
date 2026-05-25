@@ -35,6 +35,28 @@ for host in server1 server2 server3;do
     continue
   fi
 
+  # 检查远程服务器是否安装了rsync，如果没有则自动安装
+  tput setaf 3
+  echo "Checking rsync on [$host]..."
+  tput setaf 7
+  
+  ssh root@"$host" "command -v rsync &> /dev/null" 
+  if [ $? -ne 0 ]; then
+    tput setaf 3
+    echo "rsync not found on [$host], installing..."
+    tput setaf 7
+    ssh root@"$host" "yum install -y rsync" 
+    if [ $? -ne 0 ]; then
+      tput setaf 1
+      echo "Failed to install rsync on [$host]"
+      tput setaf 7
+      continue
+    fi
+    tput setaf 2
+    echo "rsync installed successfully on [$host]"
+    tput setaf 7
+  fi
+
   tput setaf 2
   echo "Syncing [$basepath] to [$host]..."
   tput setaf 7
@@ -42,7 +64,7 @@ for host in server1 server2 server3;do
   # -a: 归档模式，保留文件属性
   # -z: 传输时压缩
   # --delete: 删除目标目录中源目录不存在的文件，保持完全同步
-  rsync -az --delete "$fullpath" root@"$host:$basepath"
+  rsync -az --delete "$fullpath" root@"$host:$basepath/"
 
   if [ $? -eq 0 ];then
     echo "Sync [$basepath] to [$host] successfully"

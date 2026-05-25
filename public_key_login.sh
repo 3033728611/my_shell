@@ -8,32 +8,42 @@
 # server2
 # server3
 
-PASS='0816'
+#!/bin/bash
 
-# 检查 hosts.txt 文件是否存在
-if [ ! -f hosts.txt ]; then
-    echo "错误: hosts.txt 文件不存在!"
-    echo "请创建 hosts.txt 文件，每行包含一个服务器 IP 地址或主机名"
-    exit 1
+# 第一步：生成密钥
+echo "=== 第1步：生成 SSH 密钥 ==="
+if [ ! -f ~/.ssh/id_rsa ]; then
+    ssh-keygen -t rsa -P '' -f ~/.ssh/id_rsa
+fi
+echo "密钥已就绪"
+
+# 第二步安装sshpass
+echo "=== 第2步：安装sshpass ==="
+if ! command -v sshpass &> /dev/null; then
+    yum install -y sshpass || {
+        echo "sshpass not installed, please check and install in person"
+        exit 1
+    }
 fi
 
-command -v expect &> /dev/null || yum install -y expect
+# 第三步：读取服务器列表并配置
+echo ""
+echo "=== 第3步：配置无密码登录 ==="
+PASS='0816'
 
-ssh-keygen -t rsa -P '' -f ~/.ssh/id_rsa &> /dev/null && echo "ssh key is created"
-
-while read ip; do
-    expect << EOF
-    set timeout 20
-
-    spawn ssh-copy-id -i ~/.ssh/id_rsa.pub $ip
-    expect {
-        "yes/no" {send "yes\r";exp_continue}
-        "password:" {send "$PASS\r"}
-        timeout {puts "Connection to $ip timed out"; exit 1}
-        eof
-    }
-    expect eof
-EOF
-
-    echo "${ip} is read"
+while IFS= read -r ip
+do
+    # 跳过空行和注释
+    if [ -z "$ip" ] || [[ "$ip" == \#* ]]; then
+        continue
+    fi
+    
+    echo ">>> 正在配置 $ip ..."
+    
+    # 这里手动执行 ssh-copy-id 命令
+    sshpass -p "$PASS" ssh-copy-id -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa.pub "$ip"
+    
 done < hosts.txt
+
+echo ""
+echo "=== 全部完成 ==="
